@@ -1,30 +1,46 @@
 {
   "expo": {
-    "name": "photoclean-ios",
-    "slug": "photoclean-ios",
+    "name": "PhotoClean",
+    "slug": "photoclean",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#1a5c3a"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.photoclean.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "PhotoClean needs access to your photo library to help you review and clean up photos.",
+        "NSPhotoLibraryAddUsageDescription": "PhotoClean needs access to save photos."
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
-      "predictiveBackGestureEnabled": false
+        "backgroundColor": "#1a5c3a",
+        "foregroundImage": "./assets/icon.png"
+      }
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
+    "plugins": [
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "PhotoClean needs access to your photo library to help you review and organize your photos.",
+          "savePhotosPermission": "Allow PhotoClean to save photos.",
+          "isAccessMediaLocationEnabled": true
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "photoclean-ios"
+      }
     }
   }
 }

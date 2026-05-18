@@ -10,6 +10,7 @@ import HomeScreen from "./src/screens/HomeScreen";
 import SwipeScreen from "./src/screens/SwipeScreen";
 import GalleryScreen from "./src/screens/GalleryScreen";
 import TrashScreen from "./src/screens/TrashScreen";
+import OnboardingScreen from "./src/screens/OnboardingScreen";
 
 // Photo context for sharing state across screens
 export type PhotoStatus = "pending" | "keep" | "trash";
@@ -51,6 +52,7 @@ export default function App() {
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [permissionGranted, setPermissionGranted] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
 
   const requestPermission = async () => {
     const { status } = await MediaLibrary.requestPermissionsAsync();
@@ -156,6 +158,10 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
+      // Check onboarding status
+      const onboardingDone = await AsyncStorage.getItem("onboardingComplete");
+      setShowOnboarding(onboardingDone !== "true");
+
       const { status } = await MediaLibrary.getPermissionsAsync();
       if (status === "granted") {
         setPermissionGranted(true);
@@ -163,6 +169,19 @@ export default function App() {
       }
     })();
   }, []);
+
+  // Show nothing while checking onboarding status
+  if (showOnboarding === null) return null;
+
+  // Show onboarding for first-time users
+  if (showOnboarding) {
+    return (
+      <>
+        <StatusBar style="dark" />
+        <OnboardingScreen onComplete={() => setShowOnboarding(false)} />
+      </>
+    );
+  }
 
   return (
     <PhotoContext.Provider

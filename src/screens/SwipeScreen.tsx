@@ -12,10 +12,12 @@ import {
   ActivityIndicator,
   Animated,
   PanResponder,
+  FlatList,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { usePhotos, PhotoItem } from "../../App";
+import { analyzePhotos, localAnalysis } from "../services/api";
 
 const PINE_GREEN = "#1a5c3a";
 const PINE_LIGHT = "#e8f5ee";
@@ -136,17 +138,52 @@ export default function SwipeScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
+  const [aiProgress, setAiProgress] = useState({ analyzed: 0, total: 0 });
+
   const handleAiAnalyze = async (queryPrompt: string) => {
     if (!queryPrompt.trim()) return;
     setAnalyzing(true);
+    setAiResults(null);
     try {
-      // For now, show alert that AI analysis requires server auth
-      // In production, this would call the backend API
-      Alert.alert(
-        "AI Analysis",
-        `Analyzing photos for: "${queryPrompt}"\n\nThis feature requires server authentication. Photos matching your description will be highlighted for review.`,
-        [{ text: "OK" }]
+      // First try local heuristic analysis (instant, no network needed)
+      const localMatches = localAnalysis(
+        queryPrompt,
+        pendingPhotos.map((p) => ({
+          id: p.id,
+          filename: p.filename,
+          fileSize: p.fileSize,
+          width: p.width,
+          height: p.height,
+        }))
       );
+
+      if (localMatches.length > 0) {
+        setAiResults(localMatches);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        // Try backend AI analysis for more complex queries
+        setAiProgress({ analyzed: 0, total: pendingPhotos.length });
+        const photosToAnalyze = pendingPhotos.slice(0, 20).map((p) => ({
+          id: p.id,
+          uri: p.uri,
+        }));
+
+        const matches = await analyzePhotos(
+          queryPrompt,
+          photosToAnalyze,
+          (analyzed, total) => setAiProgress({ analyzed, total })
+        );
+
+        if (matches.length > 0) {
+          setAiResults(matches);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } else {
+          Alert.alert(
+            "No Matches",
+            `No photos matching "${queryPrompt}" were found. Try a different description.`
+          );
+        }
+      }
     } catch (error) {
       Alert.alert("Error", "Failed to analyze photos. Please try again.");
     } finally {
@@ -239,6 +276,48 @@ export default function SwipeScreen() {
           ))}
         </ScrollView>
       </View>
+
+      {/* AI Results Panel */}
+      {analyzing && (
+        <View style={styles.analyzingPanel}>
+          <ActivityIndicator size="small" color={PINE_GREEN} />
+          <Text style={styles.analyzingText}>
+            Analyzing {aiProgress.analyzed}/{aiProgress.total} photos...
+          </Text>
+        </View>
+      )}
+
+      {aiResults && aiResults.length > 0 && (
+        <View style={styles.aiResultsPanel}>
+          <View style={styles.aiResultsHeader}>
+            <Text style={styles.aiResultsTitle}>
+              {aiResults.length} photo{aiResults.length !== 1 ? "s" : ""} found
+            </Text>
+            <View style={styles.aiResultsActions}>
+              <TouchableOpacity
+                style={styles.aiTrashAllButton}
+                onPress={handleTrashAiResults}
+              >
+                <Ionicons name="trash" size={14} color="#fff" />
+                <Text style={styles.aiTrashAllText}>Trash All</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setAiResults(null)}>
+                <Ionicons name="close-circle" size={22} color="#999" />
+              </TouchableOpacity>
+            </View>
+          </View>
+          <FlatList
+            horizontal
+            data={pendingPhotos.filter((p) => aiResults.includes(p.id))}
+            keyExtractor={(item) => item.id}
+            showsHorizontalScrollIndicator={false}
+            renderItem={({ item }) => (
+              <Image source={{ uri: item.uri }} style={styles.aiThumb} />
+            )}
+            style={styles.aiThumbList}
+          />
+        </View>
+      )}
 
       {/* Swipe Card */}
       <View style={styles.cardContainer}>
@@ -507,5 +586,66 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
     marginTop: 8,
+  },
+  analyzingPanel: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 12,
+    marginHorizontal: 16,
+    backgroundColor: PINE_LIGHT,
+    borderRadius: 10,
+  },
+  analyzingText: {
+    fontSize: 13,
+    color: PINE_GREEN,
+    fontWeight: "500",
+  },
+  aiResultsPanel: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    backgroundColor: "#f9fafb",
+    borderRadius: 12,
+    padding: 12,
+  },
+  aiResultsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  aiResultsTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#1a1a1a",
+  },
+  aiResultsActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  aiTrashAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#ef4444",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  aiTrashAllText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  aiThumbList: {
+    maxHeight: 60,
+  },
+  aiThumb: {
+    width: 56,
+    height: 56,
+    borderRadius: 8,
+    marginRight: 6,
   },
 });

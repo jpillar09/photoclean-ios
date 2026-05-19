@@ -17,6 +17,9 @@
       }
     },
     "production": {
+      "env": {
+        "EXPO_USE_PRECOMPILED_MODULES": "0"
+      },
       "ios": {
         "buildConfiguration": "Release",
         "autoIncrement": true
